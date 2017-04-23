@@ -8,7 +8,7 @@ from .models import Group, GroupMembership
 # Create your views here.
 
 @login_required(login_url='/login/')
-def createGroup(request, template='group_create.html'):
+def create_group(request, template='group_create.html'):
     """
     Create a new group.
     The User who creates the group will became its administrator.
@@ -24,7 +24,7 @@ def createGroup(request, template='group_create.html'):
 
 @login_required(login_url='/login/')
 @require_http_methods(['GET'])
-def getGroupDetail(request, group_id, template='group_detail.html'):
+def get_group_detail(request, group_id, template='group_detail.html'):
     """
     Display group information.
     """
@@ -35,7 +35,7 @@ def getGroupDetail(request, group_id, template='group_detail.html'):
 
 @login_required(login_url='/login/')
 @require_http_methods(['GET'])
-def getUserGroups(request, template='group_user_list.html'):
+def get_user_groups(request, template='group_user_list.html'):
     """
     Display user groups list.
     """
@@ -44,7 +44,7 @@ def getUserGroups(request, template='group_user_list.html'):
 
 
 @login_required(login_url='/login/')
-def joinGroup(request, group_id):
+def join_group(request, group_id):
     """
     User joins a group and becomes one of its members.
     If the group has public access user will be added as a member instantly,
@@ -58,7 +58,7 @@ def joinGroup(request, group_id):
 
 @login_required(login_url='/login/')
 @require_http_methods(['GET'])
-def listGroupMembers(request, group_id, template='group_members.html'):
+def list_group_members(request, group_id, template='group_members.html'):
     """
     Get the list of group members.
     """
@@ -66,7 +66,7 @@ def listGroupMembers(request, group_id, template='group_members.html'):
 
 
 @login_required(login_url='/login/')
-def removeGroup(request, group_id, template='group_remove.html'):
+def remove_group(request, group_id, template='group_remove.html'):
     """
     Remove a group.
     The group can be removed only by its administrator.
@@ -79,7 +79,7 @@ def removeGroup(request, group_id, template='group_remove.html'):
 
 
 @login_required(login_url='/login/')
-def sendGroupMembershipRequest(request, group_id, template='group_send_request.html'):
+def send_group_membership_request(request, group_id, template='group_send_request.html'):
     """
     Send membership request to the administrator
     of a private group.
