@@ -1,8 +1,3 @@
-# Copyright (c) 2016 Publisher, Inc. - All Rights Reserved.
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
-# Written by Sergio de Diego <sergio.dediego@outlook.com>, October 2016.
-
 from django.db import models, transaction
 from django.urls import reverse
 
@@ -122,23 +117,10 @@ class GroupMembershipManager(models.Manager):
             cache.set(keys.get('members'), members)
         return memberships, members
 
-    #def members(self, group):
-    #    """
-    #    Return all group members.
-    #    """
-    #    key = make_key('members', group.pk)
-    #    members = cache.get(key)
-    #    if members is None:
-    #        memberships = self.memberships(group)
-    #        members = [membership.member for membership in memberships]
-    #        cache.set(key, members)
-    #    return members
-
     def count_group_members(self, group):
         """
         Count all members belonging to one group.
         """
-        #count = len(self.members(group=group))
         memberships, members = self.memberships(group)
         count = memberships.count()
         return count
@@ -159,6 +141,7 @@ class GroupMembershipManager(models.Manager):
                 except self.model.DoesNotExist:
                     return False
         return False
+
 
 class GroupMembershipRequestManager(models.Manager):
     """
@@ -198,7 +181,6 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all membership requests count.
         """
-        #count = len(self.requests(user))
         count = self.requests(user).count()
         return count
 
@@ -217,7 +199,6 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all rejected membership requests count.
         """
-        #count = len(self.rejected_requests(user=user))
         count = self.rejected_requests(user).count()
         return count
 
@@ -236,7 +217,6 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all unrejected membership requests count.
         """
-        #count = len(self.unrejected_requests(user=user))
         count = self.unrejected_requests(user).count()
         return count
 
@@ -255,7 +235,6 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all viewed membership requests count.
         """
-        #count = len(self.viewed_requests(user=user))
         count = self.viewed_requests(user).count()
         return count
 
@@ -274,6 +253,5 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all unviewed membership requests count.
         """
-        #count = len(self.unviewed_requests(user=user))
         count = self.unviewed_requests(user).count()
         return count
