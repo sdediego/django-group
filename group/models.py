@@ -1,8 +1,3 @@
-# Copyright (c) 2016 Publisher, Inc. - All Rights Reserved.
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
-# Written by Sergio de Diego <sergio.dediego@outlook.com>, October 2016.
-
 import datetime
 
 from django.contrib.auth.models import User
@@ -203,7 +198,6 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group accepts
         the request to join the group.
         """
-        #if user.is_authenticated() and user == self.to_administrator:
         membership, created = GroupMembership.objects.get_or_create(member=self.from_user, group=self.group, permit='PART')
         if created:
             self.remove_membership_request(user)
@@ -218,7 +212,6 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group rejects
         the request to join the group.
         """
-        #if user.is_authenticated() and user == self.to_administrator:
         if not self.rejected:
             self.rejected = timezone.now()
             self.save()
@@ -233,7 +226,6 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group removes
         the request to join the group.
         """
-        #if user.is_authenticated() and user == self.to_administrator:
         self.delete()
         cache_bust([('requests', self.to_administrator.pk)])
         return True
@@ -258,7 +250,6 @@ class GroupMembershipRequest(models.Model):
         the first time administrator reads it.
         Also can be manually marked and unmark as viewed.
         """
-        #if user.is_authenticated() and user == self.to_administrator:
         if not self.viewed:
             self.viewed = timezone.now()
             self.saved()
@@ -273,7 +264,6 @@ class GroupMembershipRequest(models.Model):
         The administrator can be manually unmark
         as viewed the membership request.
         """
-        #if user.is_authenticated() and user == self.to_administrator:
         if self.viewed:
             self.viewed =''
             self.saved()
