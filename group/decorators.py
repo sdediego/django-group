@@ -1,8 +1,3 @@
-# Copyright (c) 2016 Publisher, Inc. - All Rights Reserved.
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
-# Written by Sergio de Diego <sergio.dediego@outlook.com>, October 2016.
-
 from functools import wraps
 
 # Create your decorators here.
