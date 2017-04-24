@@ -12,7 +12,6 @@ class GroupManager(models.Manager):
     Group model manager.
     """
 
-    @transaction.atomic
     def create_new_group(self, user, name, access='PRIVATE'):
         """
         Create a new group defined by its name and access type.
@@ -54,7 +53,6 @@ class GroupMembershipManager(models.Manager):
     GroupMembership model manager.
     """
 
-    @transaction.atomic
     def add_membership(self, user, group, permit='PART'):
         """
         New group membership.
@@ -70,12 +68,13 @@ class GroupMembershipManager(models.Manager):
                 membership_created.send(sender=self.model)
                 cache_bust([('groups', user.pk), ('memberships', group.pk)])
                 return reverse('group:group_detail', kwargs={'group_id': group.pk})
+            else:
+                raise GroupMembershipError('Error creating group membership.')
         elif group.access == 'PRIVATE':
             return reverse('group:membership_request', kwargs={'group_id': group.pk})
         else:
             raise GroupError('Group access has to be either PUBLIC or PRIVATE.')
 
-    @transaction.atomic
     def set_group_admin(self, user, group, permit='ADMIN'):
         """
         Set the creator of a group as administrator.
@@ -148,7 +147,6 @@ class GroupMembershipRequestManager(models.Manager):
     GroupMembership model manager.
     """
 
-    @transaction.atomic
     def send_membership_request(self, from_user, to_admin, group, message):
         """
         Send membership request to private group administrator to join.
