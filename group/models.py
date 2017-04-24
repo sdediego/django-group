@@ -1,3 +1,8 @@
+# Copyright (c) 2016 Publisher, Inc. - All Rights Reserved.
+# Unauthorized copying of this file, via any medium is strictly prohibited.
+# Proprietary and confidential.
+# Written by Sergio de Diego <sergio.dediego@outlook.com>, October 2016.
+
 import datetime
 
 from django.contrib.auth.models import User
@@ -6,9 +11,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-from .caches import cache_bust
-from .decorators import group_admin_permit_required
-from .managers import GroupManager, GroupMembershipManager, GroupMembershipRequestManager
+from apps.group.caches import cache_bust
+from apps.group.decorators import group_admin_permit_required
+from apps.group.managers import GroupManager, GroupMembershipManager, GroupMembershipRequestManager
 
 # Create your models here.
 
@@ -72,11 +77,11 @@ class Group(models.Model):
         """
         Remove selected group by its administrator.
         """
-        group = self
+        group_pk = self.pk
         response = group_and_membership_remove.send(sender=self.__class__, user=user, group=self)
         receiver, deleted = response[0]
         if deleted:
-            cache_bust([('groups', user.pk), ('memberships', group.pk)])
+            cache_bust([('groups', user.pk), ('memberships', group_pk)])
             return True
         return False
 
@@ -125,12 +130,12 @@ class GroupMembership(models.Model):
         """
         if user.is_authenticated() and self.objects.is_member(user):
             administrator = self.objects.get_group_admin(self.group)
-            if self.member != administrator and (user == self.member or user == administrator):
+            if user == self.member != administrator or user == administrator:
                 group = self.group
                 self.delete()
                 cache_bust([('groups', user.pk), ('memberships', group.pk)])
                 return True
-            elif self.member == administrator:
+            elif user == self.member == administrator:
                 response = Group.objects.remove_group(user)
                 return response
         return False
@@ -198,10 +203,12 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group accepts
         the request to join the group.
         """
+        #if user.is_authenticated() and user == self.to_administrator:
         membership, created = GroupMembership.objects.get_or_create(member=self.from_user, group=self.group, permit='PART')
         if created:
             self.remove_membership_request(user)
             membership_request_accepted.send(sender=self.__class__, user=self.from_user, request=self)
+            cache_bust([('memberships', group.pk)])
             return membership
 
     @group_admin_permit_required
@@ -211,6 +218,7 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group rejects
         the request to join the group.
         """
+        #if user.is_authenticated() and user == self.to_administrator:
         if not self.rejected:
             self.rejected = timezone.now()
             self.save()
@@ -225,6 +233,7 @@ class GroupMembershipRequest(models.Model):
         The administrator of the group removes
         the request to join the group.
         """
+        #if user.is_authenticated() and user == self.to_administrator:
         self.delete()
         cache_bust([('requests', self.to_administrator.pk)])
         return True
@@ -249,6 +258,7 @@ class GroupMembershipRequest(models.Model):
         the first time administrator reads it.
         Also can be manually marked and unmark as viewed.
         """
+        #if user.is_authenticated() and user == self.to_administrator:
         if not self.viewed:
             self.viewed = timezone.now()
             self.saved()
@@ -263,6 +273,7 @@ class GroupMembershipRequest(models.Model):
         The administrator can be manually unmark
         as viewed the membership request.
         """
+        #if user.is_authenticated() and user == self.to_administrator:
         if self.viewed:
             self.viewed =''
             self.saved()

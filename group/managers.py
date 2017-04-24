@@ -1,9 +1,14 @@
+# Copyright (c) 2016 Publisher, Inc. - All Rights Reserved.
+# Unauthorized copying of this file, via any medium is strictly prohibited.
+# Proprietary and confidential.
+# Written by Sergio de Diego <sergio.dediego@outlook.com>, October 2016.
+
 from django.db import models, transaction
 from django.urls import reverse
 
-from .caches import cache_bust, make_key, make_key_many
-from .exceptions import GroupMembershipError, SendRequestError
-from .signals import group_created
+from apps.group.caches import cache_bust, make_key, make_key_many
+from apps.group.exceptions import GroupError, GroupMembershipError
+from apps.group.signals import group_created
 
 # Create your managers here.
 
@@ -19,13 +24,16 @@ class GroupManager(models.Manager):
         Group access is set as private ('PRIV') by default.
         When created send signal to set administrator permit to the group creator.
         """
-        group, created = self.get_or_create(name=name, access=access)
-        if created:
-            reponse = group_created.send(sender=self.model.__class__, user=user, group=group)
-            receiver, administrator = response[0]
-            cache_bust([('groups', user.pk)])
-            return group, administrator
-        return False
+        if not self.filter(name=name).exists():
+            group, created = self.get_or_create(name=name, access=access)
+            if created:
+                response = group_created.send(sender=self.model.__class__, user=user, group=group)
+                receiver, administrator = response[0]
+                cache_bust([('groups', user.pk)])
+                return group, administrator
+            return False
+        else:
+            raise GroupError('Already exists a group with name \'{name}\''.format(name=name))
 
     def get_user_groups(self, user):
         """
@@ -69,6 +77,8 @@ class GroupMembershipManager(models.Manager):
                 return reverse('group:group_detail', kwargs={'group_id': group.pk})
         elif group.access == 'PRIVATE':
             return reverse('group:membership_request', kwargs={'group_id': group.pk})
+        else:
+            raise GroupError('Group access has to be either PUBLIC or PRIVATE.')
 
     @transaction.atomic
     def set_group_admin(self, user, group, permit='ADMIN'):
@@ -76,19 +86,26 @@ class GroupMembershipManager(models.Manager):
         Set the creator of a group as administrator.
         There can only be one administrator in each group.
         """
-        administrator = self.create(member=user, group=group, permit=permit)
-        return administrator
+        if isinstance(group, self.model.__class__):
+            if not self.filter(group=group, permit=permit).exists():
+                administrator = self.create(member=user, group=group, permit=permit)
+                return administrator
+            else:
+                raise GroupError('The group already has one administrator.')
+        return False
 
     def get_group_admin(self, group):
         """
         Return group administrator.
         """
-        try:
-            membership = self.get(group=group, permit='ADMIN')
-            administrator = membership.member
-            return administrator
-        except self.model.DoesNotExist:
-            return False
+        if isinstance(group, self.model.__class__):
+            try:
+                membership = self.selected_related('member').get(group=group, permit='ADMIN')
+                administrator = membership.member
+                return administrator
+            except self.model.DoesNotExist:
+                raise GroupError('Group has no administrator.')
+        return False
 
     def memberships(self, group):
         """
@@ -97,16 +114,31 @@ class GroupMembershipManager(models.Manager):
         keys = make_key_many([('memberships', group.pk), ('members', group.pk)])
         memberships = cache.get(keys.get('memberships'))
         members = cache.get(keys.get('members'))
-        if memberships is None or members is None:
+        if memberships is None:
             memberships = self.selected_related('member').filter(group=group)
+            cache.set(keys.get('memberships'), memberships)
+        if members is None:
             members = [membership.member for membership in memberships]
-            cache.set_many({keys.get('memberships'): memberships, keys.get('members'): members})
+            cache.set(keys.get('members'), members)
         return memberships, members
+
+    #def members(self, group):
+    #    """
+    #    Return all group members.
+    #    """
+    #    key = make_key('members', group.pk)
+    #    members = cache.get(key)
+    #    if members is None:
+    #        memberships = self.memberships(group)
+    #        members = [membership.member for membership in memberships]
+    #        cache.set(key, members)
+    #    return members
 
     def count_group_members(self, group):
         """
         Count all members belonging to one group.
         """
+        #count = len(self.members(group=group))
         memberships, members = self.memberships(group)
         count = memberships.count()
         return count
@@ -115,18 +147,18 @@ class GroupMembershipManager(models.Manager):
         """
         Check if user is a group member.
         """
-        key = make_key('members', group.pk)
-        members = cache.get(key)
-        if members is not None and user in members:
-            return True
-        else:
-            try:
-                member = self.get(member=user, group=group)
+        if user.is_authenticated() and isinstance(group, self.model.__class__):
+            key = make_key('members', group.pk)
+            members = cache.get(key)
+            if members is not None and user in members:
                 return True
-            except self.model.DoesNotExist:
-                pass
+            else:
+                try:
+                    member = self.get(member=user, group=group)
+                    return True
+                except self.model.DoesNotExist:
+                    return False
         return False
-
 
 class GroupMembershipRequestManager(models.Manager):
     """
@@ -140,13 +172,16 @@ class GroupMembershipRequestManager(models.Manager):
         After trying to join a private group the user is redirected to
         membership request form if the group is private once checked the
         user is not already a group member.
+        The membership request form saving executes this method.
         """
-        request, created = self.get_or_create(from_user=from_user, to_administrator=to_admin, group=group, message=message)
-        if created is False:
-            raise SendRequestError('Membership request for this group has already been sent.')
-        cache_bust([('requests', to_admin.pk), ('sent_requests', from_user.pk)])
-        membership_request_sent.send(sender=self.model.__class__)
-        return request
+        if user.is_authenticated():
+            request, created = self.get_or_create(from_user=from_user, to_administrator=to_admin, group=group, message=message)
+            if not created:
+                raise SendRequestError('Membership request for this group has already been sent.')
+            cache_bust([('requests', to_admin.pk), ('sent_requests', from_user.pk)])
+            membership_request_sent.send(sender=self.model.__class__)
+            return request
+        return False
 
     def requests(self, user):
         """
@@ -163,6 +198,7 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all membership requests count.
         """
+        #count = len(self.requests(user))
         count = self.requests(user).count()
         return count
 
@@ -181,6 +217,7 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all rejected membership requests count.
         """
+        #count = len(self.rejected_requests(user=user))
         count = self.rejected_requests(user).count()
         return count
 
@@ -199,6 +236,7 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all unrejected membership requests count.
         """
+        #count = len(self.unrejected_requests(user=user))
         count = self.unrejected_requests(user).count()
         return count
 
@@ -217,6 +255,7 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all viewed membership requests count.
         """
+        #count = len(self.viewed_requests(user=user))
         count = self.viewed_requests(user).count()
         return count
 
@@ -235,5 +274,6 @@ class GroupMembershipRequestManager(models.Manager):
         """
         Return all unviewed membership requests count.
         """
+        #count = len(self.unviewed_requests(user=user))
         count = self.unviewed_requests(user).count()
         return count
